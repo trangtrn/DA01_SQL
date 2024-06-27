@@ -59,6 +59,6 @@ WHERE first_name = 'Amitah'
 
 --ex10:
 select title, 
-SUBSTRING(title FROM POSITION(' ' IN title) +1 FOR 4) AS year
+SUBSTRING(title FROM LENGTH(winery) +2 FOR 4) AS year
 from winemag_p2
 WHERE country = 'Macedonia'
