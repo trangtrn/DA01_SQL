@@ -57,3 +57,71 @@ FROM pages p
 LEFT JOIN page_likes l
 ON p.page_id = l.page_id
 WHERE l.page_id IS NULL
+
+--**MID COURSE TEST**
+--Q1:
+SELECT DISTINCT replacement_cost FROM film
+ORDER BY replacement_cost
+
+--Q2:
+SELECT
+CASE WHEN replacement_cost BETWEEN 9.99 AND 19.99 THEN 'low' 
+	WHEN replacement_cost BETWEEN 20.00 AND 24.99 THEN 'medium'
+	WHEN replacement_cost BETWEEN 25.00 AND 29.99 THEN 'high'
+END category,
+COUNT(*) AS quantity
+FROM film
+GROUP BY category
+
+--Q3:
+SELECT f.title, f.length, c.name 
+FROM film f
+INNER JOIN film_category fc ON f.film_id = fc.film_id
+INNER JOIN category c ON fc.category_id = c.category_id
+WHERE c.name IN ('Drama', 'Sports')
+ORDER BY f.length DESC
+
+--Q4: 
+SELECT c.name, 
+COUNT(*) AS quantity
+FROM film f
+INNER JOIN film_category fc ON f.film_id = fc.film_id
+INNER JOIN category c ON fc.category_id = c.category_id
+GROUP BY c.name
+ORDER BY quantity DESC
+
+--Q5:
+SELECT a.first_name || ' '|| a.last_name AS actor_name, 
+COUNT(*) AS no_of_movies
+FROM film f
+INNER JOIN film_actor fa ON f.film_id = fa.film_id
+INNER JOIN actor a ON fa.actor_id = a.actor_id
+GROUP BY actor_name
+ORDER BY no_of_movies DESC
+
+--Q6:
+SELECT COUNT(*)
+FROM address a
+LEFT JOIN customer c ON a.address_id = c.address_id
+WHERE c.address_id IS NULL 
+
+--Q7:
+SELECT city.city, 
+SUM(p.amount) AS total_revenue
+FROM payment p 
+INNER JOIN customer c ON p.customer_id = c.customer_id
+INNER JOIN address a ON c.address_id = a.address_id
+INNER JOIN city ON a.city_id = city.city_id
+GROUP BY city.city
+ORDER BY total_revenue DESC
+
+--Q8:
+SELECT city.city ||', '|| country.country AS city_country, 
+SUM(p.amount) AS total_revenue
+FROM payment p 
+INNER JOIN customer c ON p.customer_id = c.customer_id
+INNER JOIN address a ON c.address_id = a.address_id
+INNER JOIN city ON a.city_id = city.city_id
+INNER JOIN country ON city.country_id = country.country_id
+GROUP BY city_country
+ORDER BY total_revenue 
