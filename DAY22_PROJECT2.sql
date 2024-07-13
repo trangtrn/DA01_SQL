@@ -1,3 +1,4 @@
+--********************PART 1*********************************
 --TASK 1:  Số lượng đơn hàng và số lượng khách hàng mỗi tháng
 SELECT FORMAT_DATE('%Y - %m',created_at) AS order_month,
 COUNT(DISTINCT user_id) AS total_users,
@@ -94,3 +95,42 @@ FROM bigquery-public-data.thelook_ecommerce.products p
 JOIN product_3_month p3m ON p.id = p3m.product_id
 GROUP BY p3m.date, p.category
 ORDER BY p3m.date, revenue DESC
+
+--********************PART 2*********************************
+--TASK 1: Tạo metrics cho dashboard
+WITH metrics AS (
+SELECT EXTRACT(MONTH FROM oi.created_at) AS month,
+EXTRACT(YEAR FROM oi.created_at) AS year, 
+p.category AS product_category,
+ROUND(SUM(oi.sale_price) OVER(PARTITION BY EXTRACT(YEAR FROM oi.created_at), EXTRACT(MONTH FROM oi.created_at), p.category),2) AS total_revenue,
+COUNT(DISTINCT oi.order_id) OVER(PARTITION BY EXTRACT(YEAR FROM oi.created_at), EXTRACT(MONTH FROM oi.created_at), p.category) AS total_orders,
+ROUND(SUM(p.cost) OVER(PARTITION BY EXTRACT(YEAR FROM oi.created_at), EXTRACT(MONTH FROM oi.created_at), p.category),2) AS total_cost,
+ROUND(SUM(oi.sale_price) OVER(PARTITION BY EXTRACT(YEAR FROM oi.created_at), EXTRACT(MONTH FROM oi.created_at), p.category) 
+- SUM(p.cost) OVER(PARTITION BY EXTRACT(YEAR FROM oi.created_at), EXTRACT(MONTH FROM oi.created_at), p.category),2) AS total_profit,
+ROUND((SUM(oi.sale_price) OVER(PARTITION BY EXTRACT(YEAR FROM oi.created_at), EXTRACT(MONTH FROM oi.created_at), p.category) 
+- SUM(p.cost) OVER(PARTITION BY EXTRACT(YEAR FROM oi.created_at), EXTRACT(MONTH FROM oi.created_at), p.category))
+/ SUM(p.cost) OVER(PARTITION BY EXTRACT(YEAR FROM oi.created_at), EXTRACT(MONTH FROM oi.created_at), p.category),2) AS profit_to_cost_ratio,
+dense_rank() over(partition by p.category order by EXTRACT(YEAR FROM oi.created_at), EXTRACT(MONTH FROM oi.created_at)) as rank
+FROM bigquery-public-data.thelook_ecommerce.orders o 
+JOIN bigquery-public-data.thelook_ecommerce.order_items oi ON o.order_id = oi.order_id
+JOIN bigquery-public-data.thelook_ecommerce.products p ON oi.product_id = p.id
+WHERE oi.status = 'Complete'
+ORDER BY p.category)
+  
+, clean_metrics AS (
+SELECT DISTINCT * FROM metrics
+ORDER BY product_category,year, month)
+  
+, metrics_for_dashboard AS (
+SELECT a.month, a.year, a.product_category, a.total_revenue, a.total_orders,a.total_cost, a.total_profit, a.profit_to_cost_ratio,
+ROUND((a.total_revenue - b.total_revenue)/b.total_revenue*100.00,2) ||'%' AS revenue_growth,
+ROUND((a.total_orders - b.total_orders)/b.total_orders*100.00,2) ||'%' AS order_growth
+FROM clean_metrics a
+LEFT JOIN clean_metrics b ON a.product_category = b.product_category
+AND a.rank = b.rank +1 
+ORDER BY product_category,year, month)
+
+CREATE OR REPLACE VIEW vw_ecommerce_analyst AS (
+SELECT * FROM metrics_for_dashboard)
+
+--TASK 2: Retention cohort analysis
