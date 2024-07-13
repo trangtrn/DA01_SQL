@@ -134,3 +134,37 @@ CREATE OR REPLACE VIEW vw_ecommerce_analyst AS (
 SELECT * FROM metrics_for_dashboard)
 
 --TASK 2: Retention cohort analysis
+WITH cohort_data AS (
+SELECT user_id, 
+FORMAT_DATE('%Y-%m', first_purchase_date) AS cohort_date,
+(EXTRACT(YEAR FROM created_at)-EXTRACT(YEAR FROM first_purchase_date))*12+
+EXTRACT(MONTH FROM created_at)-EXTRACT(MONTH FROM first_purchase_date)+1 AS index_month
+FROM
+(SELECT user_id, created_at,
+MIN(created_at) OVER(PARTITION BY user_id) AS first_purchase_date, 
+FROM bigquery-public-data.thelook_ecommerce.orders) AS a)
+  
+, cohort_size AS (
+SELECT cohort_date, index_month,
+COUNT(DISTINCT user_id) AS users_no
+FROM cohort_data
+GROUP BY cohort_date, index_month)
+  
+, cohort_table AS (
+SELECT cohort_date,
+SUM(CASE WHEN index_month = 1 THEN users_no ELSE 0 END) AS m1,
+SUM(CASE WHEN index_month = 2 THEN users_no ELSE 0 END) AS m2,
+SUM(CASE WHEN index_month = 3 THEN users_no ELSE 0 END) AS m3,
+SUM(CASE WHEN index_month = 4 THEN users_no ELSE 0 END) AS m4
+FROM cohort_size
+GROUP BY cohort_date
+ORDER BY cohort_date)
+
+SELECT cohort_date,
+ROUND(100.00*(m1/m1),2)||'%' AS m1,
+ROUND(100.00*(m2/m1),2)||'%' AS m2,
+ROUND(100.00*(m3/m1),2)||'%' AS m3,
+ROUND(100.00*(m4/m1),2)||'%' AS m4
+FROM cohort_table
+
+--Visualize: https://docs.google.com/spreadsheets/d/12WUipjrHw1H7-6TZLzwaDZfVmXMEGJAg4peZPrazdUw/edit?gid=0#gid=0
